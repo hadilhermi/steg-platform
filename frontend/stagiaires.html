@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STEG - Gestion des Stagiaires</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="api.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: '#a855f7', primaryDark: '#7e22ce', primaryLight: '#c084fc',
+        secondary: '#f97316', secondaryLight: '#fb923c',
+        accent: '#ec4899', accentLight: '#f472b6',
+        dark: '#0f0a1a', darkCard: '#1a1025', darkSurface: '#241836', darkBorder: '#3d2b54',
+      },
+      fontFamily: { sans: ['Inter', 'sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+body { font-family: 'Inter', sans-serif; }
+.gradient-text { background: linear-gradient(135deg, #a855f7, #ec4899, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.sidebar-item:hover { background: rgba(168,85,247,0.1); border-right: 3px solid #a855f7; }
+.sidebar-item.active { background: rgba(168,85,247,0.15); border-right: 3px solid #a855f7; color: #c084fc; }
+.card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(168,85,247,0.15); }
+.glass-card { background: rgba(26,16,37,0.9); backdrop-filter: blur(20px); border: 1px solid rgba(168,85,247,0.1); }
+.status-active { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.status-pending { background: rgba(249,115,22,0.15); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+.status-completed { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+.scroll-hide::-webkit-scrollbar { display: none; }
+.scroll-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.modal-overlay { background: rgba(15,10,26,0.8); backdrop-filter: blur(8px); }
+.search-input:focus { box-shadow: 0 0 0 3px rgba(168,85,247,0.3); border-color: #a855f7; }
+.table-row:hover { background: rgba(168,85,247,0.05); }
+.toast { position: fixed; top: 20px; right: 20px; padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; z-index: 1000; transform: translateX(400px); transition: transform 0.3s ease; }
+.toast.show { transform: translateX(0); }
+.toast.success { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.toast.error { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.skeleton { background: linear-gradient(90deg, #1a1025 25%, #241836 50%, #1a1025 75%); background-size: 200% 100%; animation: skeleton 1.5s infinite; }
+@keyframes skeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body class="bg-dark text-white">
+<!-- Toast -->
+<div id="toast" class="toast"><span id="toastMsg"></span></div>
+
+<div class="flex h-screen overflow-hidden">
+  <aside class="w-64 bg-darkCard border-r border-darkBorder flex flex-col hidden md:flex">
+    <div class="p-6 border-b border-darkBorder">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg"><i class="fas fa-bolt text-white"></i></div>
+        <div><h1 class="font-bold text-lg">STEG</h1><p class="text-[10px] text-gray-500">Gestion Stagiaires</p></div>
+      </div>
+    </div>
+    <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto scroll-hide">
+      <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-3">Menu Principal</div>
+      <a href="dashboard.html" class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 transition-all"><i class="fas fa-th-large w-5"></i> Tableau de bord</a>
+      <a href="stagiaires.html" class="sidebar-item active flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"><i class="fas fa-users w-5"></i> Stagiaires</a>
+      <a href="#" class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 transition-all"><i class="fas fa-calendar-alt w-5"></i> Planning</a>
+      <a href="#" class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 transition-all"><i class="fas fa-chart-line w-5"></i> Performances</a>
+      <a href="#" class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 transition-all"><i class="fas fa-file-alt w-5"></i> Rapports</a>
+      <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-3 mt-6">Administration</div>
+      <a href="#" class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 transition-all"><i class="fas fa-user-shield w-5"></i> Utilisateurs</a>
+      <a href="#" class="sidebar-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 transition-all"><i class="fas fa-cog w-5"></i> Parametres</a>
+    </nav>
+    <div class="p-4 border-t border-darkBorder">
+      <div class="flex items-center gap-3">
+        <img id="userAvatar" src="https://ui-avatars.com/api/?name=Admin&background=a855f7&color=fff&size=40" class="w-10 h-10 rounded-full ring-2 ring-primary/30">
+        <div class="flex-1 min-w-0">
+          <p id="userName" class="text-sm font-semibold truncate">Chargement...</p>
+          <p id="userEmail" class="text-xs text-gray-500 truncate">...</p>
+        </div>
+        <button onclick="API.auth.logout()" class="text-gray-500 hover:text-red-400 transition-colors"><i class="fas fa-sign-out-alt"></i></button>
+      </div>
+    </div>
+  </aside>
+  <main class="flex-1 overflow-y-auto scroll-hide">
+    <header class="sticky top-0 z-20 bg-dark/80 backdrop-blur-xl border-b border-darkBorder px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <button class="md:hidden text-gray-400 hover:text-white"><i class="fas fa-bars text-xl"></i></button>
+        <div><h2 class="text-xl font-bold">Gestion des Stagiaires</h2><p id="totalCount" class="text-xs text-gray-500">Chargement...</p></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="openModal()" class="hidden sm:flex items-center gap-2 bg-gradient-to-r from-primary to-accent hover:from-primaryLight hover:to-accentLight text-white px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-lg shadow-primary/20"><i class="fas fa-plus"></i> Ajouter stagiaire</button>
+        <button class="relative p-2 text-gray-400 hover:text-white transition-colors"><i class="fas fa-bell text-lg"></i><span class="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full animate-pulse"></span></button>
+      </div>
+    </header>
+    <div class="p-6 space-y-6">
+      <!-- Filters -->
+      <div class="glass-card rounded-2xl p-4">
+        <div class="flex flex-col sm:flex-row gap-4">
+          <div class="relative flex-1">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+            <input type="text" id="searchInput" placeholder="Rechercher un stagiaire..." oninput="handleSearch()" class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 pl-11 pr-4 text-sm text-white placeholder-gray-600 search-input transition-all outline-none">
+          </div>
+          <div class="flex gap-3">
+            <select id="deptFilter" onchange="handleFilter()" class="bg-darkSurface border border-darkBorder rounded-xl px-4 py-2.5 text-sm text-gray-400 outline-none"><option value="">Tous les departements</option><option>Ingenierie</option><option>Commercial</option><option>RH</option><option>Finance</option><option>IT</option><option>Maintenance</option></select>
+            <select id="statusFilter" onchange="handleFilter()" class="bg-darkSurface border border-darkBorder rounded-xl px-4 py-2.5 text-sm text-gray-400 outline-none"><option value="">Tous les statuts</option><option>Actif</option><option>En attente</option><option>Termine</option><option>Suspendu</option></select>
+          </div>
+        </div>
+      </div>
+      <!-- Table -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead><tr class="border-b border-darkBorder text-left">
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Stagiaire</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Departement</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Periode</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Progression</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
+              <th class="px-6 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+            </tr></thead>
+            <tbody id="stagiairesTable" class="divide-y divide-darkBorder">
+              <!-- Loading skeletons -->
+              <tr><td class="px-6 py-4"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full skeleton"></div><div class="space-y-2"><div class="skeleton w-32 h-4 rounded"></div><div class="skeleton w-24 h-3 rounded"></div></div></div></td><td class="px-6 py-4"><div class="skeleton w-20 h-4 rounded"></div></td><td class="px-6 py-4"><div class="skeleton w-24 h-4 rounded"></div></td><td class="px-6 py-4"><div class="skeleton w-32 h-4 rounded"></div></td><td class="px-6 py-4"><div class="skeleton w-16 h-6 rounded-full"></div></td><td class="px-6 py-4 text-right"><div class="skeleton w-20 h-4 rounded inline-block"></div></td></tr>
+              <tr><td class="px-6 py-4"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full skeleton"></div><div class="space-y-2"><div class="skeleton w-32 h-4 rounded"></div><div class="skeleton w-24 h-3 rounded"></div></div></div></td><td class="px-6 py-4"><div class="skeleton w-20 h-4 rounded"></div></td><td class="px-6 py-4"><div class="skeleton w-24 h-4 rounded"></div></td><td class="px-6 py-4"><div class="skeleton w-32 h-4 rounded"></div></td><td class="px-6 py-4"><div class="skeleton w-16 h-6 rounded-full"></div></td><td class="px-6 py-4 text-right"><div class="skeleton w-20 h-4 rounded inline-block"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Pagination -->
+        <div class="px-6 py-4 border-t border-darkBorder flex items-center justify-between">
+          <p id="paginationInfo" class="text-xs text-gray-500">Chargement...</p>
+          <div id="pagination" class="flex gap-2"></div>
+        </div>
+      </div>
+      <button onclick="openModal()" class="sm:hidden fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-primary to-accent rounded-full shadow-lg shadow-primary/30 flex items-center justify-center text-white text-xl z-30"><i class="fas fa-plus"></i></button>
+    </div>
+  </main>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="stagiaireModal" class="fixed inset-0 z-50 hidden">
+  <div class="modal-overlay absolute inset-0" onclick="closeModal()"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto scroll-hide relative z-10">
+      <div class="p-6 border-b border-darkBorder flex justify-between items-center">
+        <div><h3 id="modalTitle" class="text-lg font-bold">Ajouter un stagiaire</h3><p class="text-xs text-gray-500">Remplissez les informations</p></div>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-white transition-colors"><i class="fas fa-times text-xl"></i></button>
+      </div>
+      <form id="stagiaireForm" class="p-6 space-y-5">
+        <input type="hidden" id="editId">
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Nom</label><input type="text" id="stNom" required class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-white outline-none focus:border-primary transition-colors"></div>
+          <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Prenom</label><input type="text" id="stPrenom" required class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-white outline-none focus:border-primary transition-colors"></div>
+        </div>
+        <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Email</label><input type="email" id="stEmail" required class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-white outline-none focus:border-primary transition-colors"></div>
+        <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Telephone</label><input type="tel" id="stTel" class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-white outline-none focus:border-primary transition-colors"></div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Departement</label><select id="stDept" required class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-gray-400 outline-none focus:border-primary transition-colors"><option>Ingenierie</option><option>Commercial</option><option>RH</option><option>Finance</option><option>IT</option><option>Maintenance</option></select></div>
+          <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Statut</label><select id="stStatut" class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-gray-400 outline-none focus:border-primary transition-colors"><option>Actif</option><option>En attente</option><option>Termine</option><option>Suspendu</option></select></div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Date debut</label><input type="date" id="stDateDebut" required class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-gray-400 outline-none focus:border-primary transition-colors"></div>
+          <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Date fin</label><input type="date" id="stDateFin" required class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-gray-400 outline-none focus:border-primary transition-colors"></div>
+        </div>
+        <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Universite</label><input type="text" id="stUni" placeholder="Ex: INSAT, ENIT..." class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-white placeholder-gray-600 outline-none focus:border-primary transition-colors"></div>
+        <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Projet</label><input type="text" id="stProjet" placeholder="Titre du projet..." class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-white placeholder-gray-600 outline-none focus:border-primary transition-colors"></div>
+        <div><label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes</label><textarea id="stNotes" rows="3" class="w-full bg-darkSurface border border-darkBorder rounded-xl py-2.5 px-4 text-sm text-white placeholder-gray-600 outline-none focus:border-primary transition-colors resize-none" placeholder="Commentaires additionnels..."></textarea></div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl border border-darkBorder text-gray-400 hover:text-white hover:border-gray-500 transition-all text-sm font-medium">Annuler</button>
+          <button type="submit" id="submitBtn" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary to-accent hover:from-primaryLight hover:to-accentLight text-white text-sm font-medium transition-all shadow-lg shadow-primary/20">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden">
+  <div class="modal-overlay absolute inset-0" onclick="closeDeleteModal()"></div>
+  <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl w-full max-w-md relative z-10 p-6">
+      <div class="text-center">
+        <div class="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><i class="fas fa-exclamation-triangle text-red-400 text-2xl"></i></div>
+        <h3 class="text-lg font-bold mb-2">Confirmer la suppression</h3>
+        <p class="text-sm text-gray-400 mb-6">Voulez-vous vraiment supprimer ce stagiaire ? Cette action est irreversible.</p>
+        <div class="flex gap-3">
+          <button onclick="closeDeleteModal()" class="flex-1 py-3 rounded-xl border border-darkBorder text-gray-400 hover:text-white transition-all text-sm font-medium">Annuler</button>
+          <button onclick="confirmDelete()" class="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-all">Supprimer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Auth check
+if (!API.auth.isAuthenticated()) {
+  window.location.href = 'index.html';
+}
+
+let currentPage = 1;
+let currentStagiaires = [];
+let deleteId = null;
+
+// Toast
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toastMsg');
+  toast.className = `toast ${type}`;
+  toastMsg.textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// Load user
+async function loadUser() {
+  try {
+    const user = API.getUser();
+    if (user) {
+      document.getElementById('userName').textContent = `${user.prenom} ${user.nom}`;
+      document.getElementById('userEmail').textContent = user.email;
+      document.getElementById('userAvatar').src = `https://ui-avatars.com/api/?name=${user.prenom}+${user.nom}&background=a855f7&color=fff&size=40`;
+    }
+  } catch (error) { console.error(error); }
+}
+
+// Format date
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+}
+
+// Get status badge
+function getStatusBadge(status) {
+  const classes = {
+    'Actif': 'status-active',
+    'En attente': 'status-pending',
+    'Termine': 'status-completed',
+    'Suspendu': 'bg-red-500/10 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full text-xs font-medium'
+  };
+  return `<span class="${classes[status] || classes['Actif']}">${status}</span>`;
+}
+
+// Load stagiaires
+async function loadStagiaires(page = 1) {
+  try {
+    const search = document.getElementById('searchInput').value;
+    const dept = document.getElementById('deptFilter').value;
+    const status = document.getElementById('statusFilter').value;
+
+    const params = { page, limit: 6 };
+    if (search) params.search = search;
+    if (dept) params.departement = dept;
+    if (status) params.statut = status;
+
+    const data = await API.stagiaires.getAll(params);
+    currentStagiaires = data.stagiaires;
+    currentPage = page;
+
+    renderTable(data.stagiaires);
+    renderPagination(data.currentPage, data.totalPages, data.total);
+    document.getElementById('totalCount').textContent = `${data.total} stagiaires enregistres`;
+  } catch (error) {
+    showToast('Erreur chargement stagiaires', 'error');
+  }
+}
+
+// Render table
+function renderTable(stagiaires) {
+  const tbody = document.getElementById('stagiairesTable');
+  if (stagiaires.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-500"><i class="fas fa-inbox text-4xl mb-3"></i><p>Aucun stagiaire trouve</p></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = stagiaires.map(s => `
+    <tr class="table-row transition-colors">
+      <td class="px-6 py-4">
+        <div class="flex items-center gap-3">
+          <img src="https://ui-avatars.com/api/?name=${s.prenom}+${s.nom}&background=a855f7&color=fff&size=40" class="w-10 h-10 rounded-full">
+          <div><p class="text-sm font-medium">${s.prenom} ${s.nom}</p><p class="text-xs text-gray-500">${s.email}</p></div>
+        </div>
+      </td>
+      <td class="px-6 py-4 text-sm text-gray-400">${s.departement}</td>
+      <td class="px-6 py-4 text-sm text-gray-400">${formatDate(s.dateDebut)} - ${formatDate(s.dateFin)}</td>
+      <td class="px-6 py-4">
+        <div class="flex items-center gap-2">
+          <div class="w-24 h-2 bg-darkSurface rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-primary to-accent rounded-full" style="width:${s.progression}%"></div></div>
+          <span class="text-xs text-gray-400">${s.progression}%</span>
+        </div>
+      </td>
+      <td class="px-6 py-4">${getStatusBadge(s.statut)}</td>
+      <td class="px-6 py-4 text-right">
+        <button onclick="editStagiaire('${s._id}')" class="text-gray-400 hover:text-accent transition-colors mr-2"><i class="fas fa-edit"></i></button>
+        <button onclick="deleteStagiaire('${s._id}')" class="text-gray-400 hover:text-red-400 transition-colors"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Render pagination
+function renderPagination(current, total, count) {
+  const info = document.getElementById('paginationInfo');
+  const pages = document.getElementById('pagination');
+
+  info.textContent = `Page ${current} sur ${total} (${count} total)`;
+
+  let html = '';
+  if (current > 1) html += `<button onclick="loadStagiaires(${current - 1})" class="w-8 h-8 rounded-lg bg-darkSurface border border-darkBorder text-gray-400 hover:text-white hover:border-primary/50 transition-all flex items-center justify-center text-xs"><i class="fas fa-chevron-left"></i></button>`;
+
+  for (let i = 1; i <= total; i++) {
+    if (i === current) html += `<button class="w-8 h-8 rounded-lg bg-primary border border-primary text-white flex items-center justify-center text-xs font-medium">${i}</button>`;
+    else if (i <= 3 || i >= total - 2 || Math.abs(i - current) <= 1) html += `<button onclick="loadStagiaires(${i})" class="w-8 h-8 rounded-lg bg-darkSurface border border-darkBorder text-gray-400 hover:text-white hover:border-primary/50 transition-all flex items-center justify-center text-xs">${i}</button>`;
+    else if (Math.abs(i - current) === 2) html += `<span class="text-gray-500 px-1">...</span>`;
+  }
+
+  if (current < total) html += `<button onclick="loadStagiaires(${current + 1})" class="w-8 h-8 rounded-lg bg-darkSurface border border-darkBorder text-gray-400 hover:text-white hover:border-primary/50 transition-all flex items-center justify-center text-xs"><i class="fas fa-chevron-right"></i></button>`;
+
+  pages.innerHTML = html;
+}
+
+// Search & Filter handlers
+function handleSearch() { loadStagiaires(1); }
+function handleFilter() { loadStagiaires(1); }
+
+// Modal functions
+function openModal() {
+  document.getElementById('stagiaireModal').classList.remove('hidden');
+  document.getElementById('modalTitle').textContent = 'Ajouter un stagiaire';
+  document.getElementById('stagiaireForm').reset();
+  document.getElementById('editId').value = '';
+  document.getElementById('submitBtn').textContent = 'Ajouter';
+}
+
+function closeModal() { document.getElementById('stagiaireModal').classList.add('hidden'); }
+
+function editStagiaire(id) {
+  const s = currentStagiaires.find(x => x._id === id);
+  if (!s) return;
+
+  document.getElementById('stagiaireModal').classList.remove('hidden');
+  document.getElementById('modalTitle').textContent = 'Modifier le stagiaire';
+  document.getElementById('editId').value = s._id;
+  document.getElementById('stNom').value = s.nom;
+  document.getElementById('stPrenom').value = s.prenom;
+  document.getElementById('stEmail').value = s.email;
+  document.getElementById('stTel').value = s.telephone || '';
+  document.getElementById('stDept').value = s.departement;
+  document.getElementById('stStatut').value = s.statut;
+  document.getElementById('stDateDebut').value = s.dateDebut ? new Date(s.dateDebut).toISOString().split('T')[0] : '';
+  document.getElementById('stDateFin').value = s.dateFin ? new Date(s.dateFin).toISOString().split('T')[0] : '';
+  document.getElementById('stUni').value = s.universite || '';
+  document.getElementById('stProjet').value = s.projet || '';
+  document.getElementById('stNotes').value = s.notes || '';
+  document.getElementById('submitBtn').textContent = 'Modifier';
+}
+
+// Form submit
+document.getElementById('stagiaireForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const editId = document.getElementById('editId').value;
+
+  const data = {
+    nom: document.getElementById('stNom').value,
+    prenom: document.getElementById('stPrenom').value,
+    email: document.getElementById('stEmail').value,
+    telephone: document.getElementById('stTel').value,
+    departement: document.getElementById('stDept').value,
+    statut: document.getElementById('stStatut').value,
+    dateDebut: document.getElementById('stDateDebut').value,
+    dateFin: document.getElementById('stDateFin').value,
+    universite: document.getElementById('stUni').value,
+    projet: document.getElementById('stProjet').value,
+    notes: document.getElementById('stNotes').value,
+    progression: 0
+  };
+
+  btn.textContent = editId ? 'Modification...' : 'Ajout...';
+  btn.disabled = true;
+
+  try {
+    if (editId) {
+      await API.stagiaires.update(editId, data);
+      showToast('Stagiaire modifie avec succes', 'success');
+    } else {
+      await API.stagiaires.create(data);
+      showToast('Stagiaire ajoute avec succes', 'success');
+    }
+    closeModal();
+    loadStagiaires(currentPage);
+  } catch (error) {
+    showToast(error.message || 'Erreur lors de l operation', 'error');
+  } finally {
+    btn.textContent = editId ? 'Modifier' : 'Ajouter';
+    btn.disabled = false;
+  }
+});
+
+// Delete functions
+function deleteStagiaire(id) {
+  deleteId = id;
+  document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  deleteId = null;
+  document.getElementById('deleteModal').classList.add('hidden');
+}
+
+async function confirmDelete() {
+  if (!deleteId) return;
+  try {
+    await API.stagiaires.delete(deleteId);
+    showToast('Stagiaire supprime avec succes', 'success');
+    closeDeleteModal();
+    loadStagiaires(currentPage);
+  } catch (error) {
+    showToast(error.message || 'Erreur lors de la suppression', 'error');
+  }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadUser();
+  loadStagiaires();
+});
+</script>
+</body>
+</html>
