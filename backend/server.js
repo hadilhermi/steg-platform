@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -27,9 +28,15 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/stagiaires', require('./routes/stagiaires'));
 
-// Health check
+// Health check reflects whether the API can reach MongoDB.
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'STEG API is running', timestamp: new Date() });
+  const databaseReady = mongoose.connection.readyState === 1;
+  res.status(databaseReady ? 200 : 503).json({
+    success: databaseReady,
+    status: databaseReady ? 'ok' : 'database_unavailable',
+    database: databaseReady ? 'connected' : 'disconnected',
+    timestamp: new Date(),
+  });
 });
 
 // Error handler
